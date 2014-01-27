@@ -1,0 +1,16 @@
+./testdata/golang:4:Go is expressive, concise, clean, and efficient. Its concurrency mechanisms
+./testdata/golang:5:make it easy to write programs that get the most out of multicore and networked
+./testdata/golang:6:machines, while its novel type system enables flexible and modular program
+./testdata/golang:8:garbage collection and the power of run-time reflection. It's a fast,
+./testdata/grep:2:Grep was created by Ken Thompson as a standalone application adapted from the
+./testdata/grep:4:the command g/re/p would print all lines matching a previously defined pattern.
+./testdata/grep:9:standard input. By default, it reports matching lines on standard output, but
+./testdata/grep:10:specific modes of operation may be chosen with command line options.  A simple
+./testdata/grep:34:The name of grep derives from a usage in the Unix text editor ed and related
+./testdata/grep:35:programs. Before grep existed as a separate command, the same effect might have
+./testdata/grep:42:where the second line is the command given to ed to print the relevant lines,
+./testdata/grep:43:and the third line is the command to exit from the editor.  Like most Unix
+./testdata/grep:44:commands, grep accepts options in the form of command-line
+./testdata/grep:47:lines explicitly.  Selecting all lines containing the self-standing word apple,
+./testdata/grep:51:exactly and solely apple are selected with a line-regexp instead of
+./testdata/grep:65:The v option reverses the sense of the match and prints all lines that do not

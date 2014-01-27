@@ -1,0 +1,16 @@
+Go is expressive, concise, clean, and efficient. Its concurrency mechanisms
+make it easy to write programs that get the most out of multicore and networked
+machines, while its novel type system enables flexible and modular program
+garbage collection and the power of run-time reflection. It's a fast,
+Grep was created by Ken Thompson as a standalone application adapted from the
+the command g/re/p would print all lines matching a previously defined pattern.
+standard input. By default, it reports matching lines on standard output, but
+specific modes of operation may be chosen with command line options.  A simple
+The name of grep derives from a usage in the Unix text editor ed and related
+programs. Before grep existed as a separate command, the same effect might have
+where the second line is the command given to ed to print the relevant lines,
+and the third line is the command to exit from the editor.  Like most Unix
+commands, grep accepts options in the form of command-line
+lines explicitly.  Selecting all lines containing the self-standing word apple,
+exactly and solely apple are selected with a line-regexp instead of
+The v option reverses the sense of the match and prints all lines that do not

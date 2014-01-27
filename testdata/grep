@@ -1,0 +1,72 @@
+History
+Grep was created by Ken Thompson as a standalone application adapted from the
+regular expression parser he had written for ed (which he also created). In ed,
+the command g/re/p would print all lines matching a previously defined pattern.
+Grep first appeared in the man page for Unix Version 4. 
+
+Usage
+Grep searches files specified as arguments, or, if missing, the program's
+standard input. By default, it reports matching lines on standard output, but
+specific modes of operation may be chosen with command line options.  A simple
+example of a common usage of grep is the following, which searches the file
+fruitlist.txt for lines containing the text string apple:
+
+	$ grep apple fruitlist.txt
+
+Matches occur when the specific sequence of characters is recognized, for
+example, lines containing pineapple or apples are printed irrespective of word
+boundaries. However, the search pattern specified as an argument is case
+sensitive by default, so this example's output does not include lines
+containing Apple (with a capital A) unless they also contain apple.
+Case-insensitive matching occurs when the argument option -i (ignore case) is
+given.  Multiple file names may be specified in the argument list. For example,
+all files having the extension .txt in a given directory may be searched if the
+shell supports globbing by using an asterisk as part of the filename:
+
+	$ grep apple *.txt
+
+Regular expressions can be used to match more complicated text patterns. The
+following prints all lines in the file that begin with the letter a, followed
+by any one character, followed by the letter sequence ple.
+
+	$ grep ^a.ple fruitlist.txt
+
+The name of grep derives from a usage in the Unix text editor ed and related
+programs. Before grep existed as a separate command, the same effect might have
+been achieved in an editor:
+
+	$ ed fruitlist.txt
+	g/^a.ple/p
+	q
+
+where the second line is the command given to ed to print the relevant lines,
+and the third line is the command to exit from the editor.  Like most Unix
+commands, grep accepts options in the form of command-line
+arguments to change its behavior. For example, the option flag l (lower case L)
+provides a list of the files which have matching lines, rather than listing the
+lines explicitly.  Selecting all lines containing the self-standing word apple,
+i.e. surrounded by white space or hyphens, may be accomplished with the option
+flag w.
+Exact line match is performed with the option flag x. Lines only containing
+exactly and solely apple are selected with a line-regexp instead of
+word-regexp:
+
+	$ cat fruitlist.txt
+	apple
+	apples
+	pineapple
+	apple-
+	apple-fruit
+	fruit-apple
+ 
+	$ grep -x apple fruitlist.txt
+	apple
+
+The v option reverses the sense of the match and prints all lines that do not
+contain apple, as in this example.
+
+	$ grep -v apple fruitlist.txt
+	banana
+	pear
+	peach
+	orange
