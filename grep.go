@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"runtime/pprof"
 )
@@ -99,35 +100,41 @@ func cmdMain() (exitCode int) {
 	return 0
 }
 
-func Grep(pattern string, paths []string) error {
-	printName = !Flags.NoFilename && len(paths) > 1
+func Grep(pattern string, globs []string) error {
+	printName = !Flags.NoFilename && len(globs) > 1
 
 	re, err := regexp.Compile(pattern)
 	if err != nil {
 		return err
 	}
 
-	if len(paths) == 0 {
+	if len(globs) == 0 {
 		return grepFile("", stdin, re)
 	}
 
 	matchFiles := 0
 
-	for _, name := range paths {
-		f, err := os.Open(name)
+	for _, glob := range globs {
+		paths, err := filepath.Glob(glob)
 		if err != nil {
 			return err
 		}
-		defer f.Close()
-
-		if err := grepFile(name, f, re); err != nil {
-			if err == ErrNoMatch {
-				continue
+		for _, name := range paths {
+			f, err := os.Open(name)
+			if err != nil {
+				return err
 			}
-			return err
-		}
+			defer f.Close()
 
-		matchFiles++
+			if err := grepFile(name, f, re); err != nil {
+				if err == ErrNoMatch {
+					continue
+				}
+				return err
+			}
+
+			matchFiles++
+		}
 	}
 
 	if matchFiles == 0 {
