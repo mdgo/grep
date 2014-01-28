@@ -1,18 +1,17 @@
+// Command grep provides the similar functionality as the popular grep utility.
 package main
 
 import (
 	"bufio"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime/pprof"
 )
-
-var ErrNoMatch = errors.New("grep: no match")
 
 var Flags struct {
 	CountOnly         bool
@@ -20,7 +19,9 @@ var Flags struct {
 	FilesWithoutMatch bool
 	Invert            bool
 	LineNumbers       bool
+	NoErrorMessages   bool
 	NoFilename        bool
+	Quiet             bool
 }
 
 var (
@@ -52,15 +53,22 @@ func init() {
 	Prefix each line of output with the line number within its input
 	file.`)
 
+	flag.BoolVar(&Flags.NoErrorMessages, "s", false, `
+	Suppress error messages about nonexistent or unreadable files.`)
+
 	flag.BoolVar(&Flags.NoFilename, "h", false, `
 	Suppress the prefixing of filenames on output when multiple files are
 	searched.`)
 
+	flag.BoolVar(&Flags.Quiet, "q", false, `
+	Quiet; do not write anything to standard output. Exit immediately with
+	zero status if any match is found, even if an error was detected.`)
+
 }
 
 func main() {
-	// call cmdMain in a separate function so that it can use defer and
-	// have them run before the exit.
+	// cmdMain exists for the ability to use defer and have them run before
+	// the exit.
 	os.Exit(cmdMain())
 }
 
@@ -90,22 +98,31 @@ func cmdMain() (exitCode int) {
 		flag.Usage()
 	}
 
-	if err := Grep(flag.Args()[0], flag.Args()[1:]); err != nil {
-		if err != ErrNoMatch {
-			fmt.Fprintln(stderr, err)
-		}
-		return 2
+	if Grep(flag.Args()[0], flag.Args()[1:]) {
+		return 0
 	}
 
-	return 0
+	return 2
 }
 
-func Grep(pattern string, globs []string) error {
-	printName = !Flags.NoFilename && len(globs) > 1
-
+// Grep searches the input files, or standard input if no files, for lines
+// containing a match to the given pattern. By default, grep prints the
+// matching lines. Returns true if any match; false otherwise.
+//
+func Grep(pattern string, globs []string) bool {
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		return err
+		fmt.Fprintln(stderr, err)
+		return false
+	}
+
+	// Important! Output can be suppressed after compiling pattern and
+	// showing its error if any.
+	if Flags.Quiet {
+		stderr = ioutil.Discard
+		stdout = ioutil.Discard
+	} else if Flags.NoErrorMessages {
+		stderr = ioutil.Discard
 	}
 
 	if len(globs) == 0 {
@@ -117,34 +134,40 @@ func Grep(pattern string, globs []string) error {
 	for _, glob := range globs {
 		paths, err := filepath.Glob(glob)
 		if err != nil {
-			return err
+			fmt.Fprintf(stderr, "grep: %s: %s\n", glob, err)
+			continue
 		}
+
+		// It's hard to predict if there are multiple files. Note That
+		// for multiple files is file name printed, if not prevented by
+		// Flags.NoFilename.
+		printName = !Flags.NoFilename && (len(globs) > 1 || len(paths) > 1)
+
+		if len(paths) == 0 {
+			// This glob pattern has no matching file. Adding glob
+			// to paths and continuing causes file not found, which
+			// is wanted.
+			paths = append(paths, glob)
+		}
+
 		for _, name := range paths {
 			f, err := os.Open(name)
 			if err != nil {
-				return err
+				fmt.Fprintf(stderr, "grep: %s: %s\n", name, err)
+				continue
 			}
 			defer f.Close()
 
-			if err := grepFile(name, f, re); err != nil {
-				if err == ErrNoMatch {
-					continue
-				}
-				return err
+			if grepFile(name, f, re) {
+				matchFiles++
 			}
-
-			matchFiles++
 		}
 	}
 
-	if matchFiles == 0 {
-		return ErrNoMatch
-	}
-
-	return nil
+	return matchFiles > 0
 }
 
-func grepFile(name string, in io.Reader, pattern *regexp.Regexp) error {
+func grepFile(name string, in io.Reader, pattern *regexp.Regexp) bool {
 	scanner := bufio.NewScanner(in)
 	lineNumber := 0
 	count := 0
@@ -158,14 +181,18 @@ func grepFile(name string, in io.Reader, pattern *regexp.Regexp) error {
 		}
 
 		if Flags.FilesWithoutMatch {
-			return ErrNoMatch
+			return false
+		}
+
+		if Flags.Quiet {
+			return true
 		}
 
 		if Flags.FilesWithMatch {
 			if printName {
 				fmt.Fprintln(stdout, name)
 			}
-			return nil
+			return true
 		}
 
 		count++
@@ -188,7 +215,7 @@ func grepFile(name string, in io.Reader, pattern *regexp.Regexp) error {
 	}
 
 	if err := scanner.Err(); err != nil {
-		return err
+		fmt.Fprintln(stderr, err)
 	}
 
 	if Flags.FilesWithoutMatch {
@@ -205,5 +232,5 @@ func grepFile(name string, in io.Reader, pattern *regexp.Regexp) error {
 		}
 	}
 
-	return nil
+	return count > 0
 }

@@ -1,0 +1,4 @@
+./testdata/input/golang:make it easy to write programs that get the most out of multicore and networked
+./testdata/input/golang:statically typed, compiled language that feels like a dynamically typed,
+./testdata/input/grep:following prints all lines in the file that begin with the letter a, followed
+./testdata/input/grep:The v option reverses the sense of the match and prints all lines that do not

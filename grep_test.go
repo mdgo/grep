@@ -10,17 +10,12 @@ import (
 	"testing"
 )
 
-// someError represents some, no matter of kind, error.
-type someError struct{}
-
-func (someError) Error() string { return "any error" }
-
 var testdata = []struct {
 	flags   string
 	pattern string
 	paths   string
 
-	err        error
+	match      bool
 	pathStderr string
 	pathStdout string
 	pathStdin  string
@@ -30,7 +25,7 @@ var testdata = []struct {
 		"hello",
 		"",
 
-		nil,
+		true,
 		"",
 		"./testdata/hello stdin",
 		"./testdata/hello stdin.in",
@@ -40,7 +35,7 @@ var testdata = []struct {
 		"and|open",
 		"./testdata/golang",
 
-		nil,
+		true,
 		"",
 		"./testdata/andopen golang",
 		"",
@@ -50,7 +45,7 @@ var testdata = []struct {
 		"and|open",
 		"./testdata/golang ./testdata/grep",
 
-		nil,
+		true,
 		"",
 		"./testdata/andopen golang,grep",
 		"",
@@ -60,7 +55,7 @@ var testdata = []struct {
 		"and|open",
 		"./testdata/golang",
 
-		nil,
+		true,
 		"",
 		"./testdata/c andopen golang",
 		"",
@@ -70,7 +65,7 @@ var testdata = []struct {
 		"and|open",
 		"./testdata/golang ./testdata/grep",
 
-		nil,
+		true,
 		"",
 		"./testdata/c andopen golang,grep",
 		"",
@@ -80,7 +75,7 @@ var testdata = []struct {
 		"and|open",
 		"./testdata/golang",
 
-		nil,
+		true,
 		"",
 		"./testdata/cv andopen golang",
 		"",
@@ -90,7 +85,7 @@ var testdata = []struct {
 		"and|open",
 		"./testdata/golang ./testdata/grep",
 
-		nil,
+		true,
 		"",
 		"./testdata/cv andopen golang,grep",
 		"",
@@ -100,7 +95,7 @@ var testdata = []struct {
 		"and",
 		"./testdata/golang ./testdata/grep",
 
-		nil,
+		true,
 		"",
 		"./testdata/h and golang,grep",
 		"",
@@ -110,7 +105,7 @@ var testdata = []struct {
 		"and",
 		"./testdata/golang",
 
-		nil,
+		true,
 		"",
 		"./testdata/n and golang",
 		"",
@@ -120,7 +115,7 @@ var testdata = []struct {
 		"and",
 		"./testdata/golang ./testdata/grep",
 
-		nil,
+		true,
 		"",
 		"./testdata/n and golang,grep",
 		"",
@@ -130,7 +125,7 @@ var testdata = []struct {
 		"and|open",
 		"./testdata/golang ./testdata/grep",
 
-		nil,
+		true,
 		"",
 		"./testdata/l andopen golang,grep",
 		"",
@@ -140,7 +135,7 @@ var testdata = []struct {
 		"and|open",
 		"./testdata/golang ./testdata/grep",
 
-		ErrNoMatch,
+		false,
 		"",
 		"./testdata/ll andopen golang,grep",
 		"",
@@ -150,7 +145,7 @@ var testdata = []struct {
 		"nomatchforsure",
 		"./testdata/golang ./testdata/grep",
 
-		nil,
+		false,
 		"",
 		"./testdata/ll nomatchforsure golang,grep",
 		"",
@@ -160,7 +155,27 @@ var testdata = []struct {
 		"(",
 		"./testdata/golang ./testdata/grep",
 
-		someError{},
+		false,
+		"fake/whatever",
+		"",
+		"",
+	},
+	{
+		"-s",
+		"and|open",
+		"./testdata/nonexistent ./testdata/golang ./testdata/grep",
+
+		true,
+		"",
+		"./testdata/andopen golang,grep",
+		"",
+	},
+	{
+		"-c -q",
+		"and|open",
+		"./testdata/golang ./testdata/grep",
+
+		true,
 		"",
 		"",
 		"",
@@ -168,13 +183,18 @@ var testdata = []struct {
 }
 
 func TestGrep(t *testing.T) {
+
+	// This test is brutal no doubt. Let say next time it will be better.
+
 	for _, test := range testdata {
 		Flags.CountOnly = false
 		Flags.FilesWithMatch = false
 		Flags.FilesWithoutMatch = false
 		Flags.Invert = false
 		Flags.LineNumbers = false
+		Flags.NoErrorMessages = false
 		Flags.NoFilename = false
+		Flags.Quiet = false
 
 		for _, f := range strings.Split(test.flags, " ") {
 			switch f {
@@ -188,8 +208,12 @@ func TestGrep(t *testing.T) {
 				Flags.Invert = true
 			case "-n":
 				Flags.LineNumbers = true
+			case "-s":
+				Flags.NoErrorMessages = true
 			case "-h":
 				Flags.NoFilename = true
+			case "-q":
+				Flags.Quiet = true
 			}
 		}
 
@@ -219,18 +243,19 @@ func TestGrep(t *testing.T) {
 			paths = strings.Split(test.paths, " ")
 		}
 
-		err := Grep(test.pattern, paths)
-		if _, ok := test.err.(someError); ok {
-			if err == nil {
-				t.Fatal("expected any error, got no error")
-			}
-		} else if err != test.err {
-			t.Fatalf("expected %v got %v", test.err, err)
+		match := Grep(test.pattern, paths)
+		if match != test.match {
+			t.Fatalf("context %q expected %v got %v", test.pathStdout, test.match, match)
 		}
 
-		if test.pathStderr == "" {
+		switch test.pathStderr {
+		case "":
 			if buferr.String() != "" {
 				t.Fatalf("expected stderr \"\" got %q", buferr.String())
+			}
+		case "fake/whatever":
+			if buferr.String() == "" {
+				t.Fatal("expected some stderr, got none")
 			}
 		}
 
@@ -249,11 +274,11 @@ func TestGrep(t *testing.T) {
 
 			for goldenScan.Scan() {
 				if !actualScan.Scan() {
-					t.Fatal("case", test.pathStdout, "unexpected eof")
+					t.Fatal("context", test.pathStdout, "unexpected eof")
 				}
 
 				if goldenScan.Text() != actualScan.Text() {
-					t.Fatalf("expected %q got %q", goldenScan.Text(), actualScan.Text())
+					t.Fatalf("context %q expected %q got %q", test.pathStdout, goldenScan.Text(), actualScan.Text())
 				}
 			}
 
@@ -263,6 +288,21 @@ func TestGrep(t *testing.T) {
 
 			if err := actualScan.Err(); err != nil {
 				t.Fatal("unexpected error", err)
+			}
+		}
+
+		if Flags.NoErrorMessages {
+			if stderr != ioutil.Discard {
+				t.Fatal("expected stderr set to ioutil.Discard if NoErrorMessages flag")
+			}
+		}
+
+		if Flags.Quiet {
+			if stderr != ioutil.Discard {
+				t.Fatal("expected stderr set to ioutil.Discard if -q")
+			}
+			if stdout != ioutil.Discard {
+				t.Fatal("expected stdout set to ioutil.Discard if -q")
 			}
 		}
 	}
